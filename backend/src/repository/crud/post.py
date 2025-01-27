@@ -70,11 +70,12 @@ class PostCRUDRepository(BaseCRUDRepository):
         await self.async_session.commit()
 
         # Refresh the post to load relationships
-        await self.async_session.refresh(db_post, attribute_names=["photos", "stats", "tags"])
+        await self.async_session.refresh(db_post, attribute_names=["photos", "stats", "tags", "poll"])
 
         return db_post
 
     async def read_post(self, post_id: int) -> Post:
+        await self.async_session.flush()
         stmt = (
             sqlalchemy.select(Post)
             .where(Post.id == post_id)
@@ -94,7 +95,7 @@ class PostCRUDRepository(BaseCRUDRepository):
         return db_post
 
 
-    async def read_posts(self, skip: int = 0, limit: int = 10, tag: int = None) -> typing.Sequence[Post]:
+    async def read_posts(self, user_id:int, skip: int = 0, limit: int = 10, tag: int = None) -> typing.Sequence[Post]:
         if tag:
             stmt = (
                 sqlalchemy.select(Post)

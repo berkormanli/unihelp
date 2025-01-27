@@ -37,6 +37,26 @@ async def enrich_post_with_interactions(
 
 
 @router.get(
+    path="/getIdByUsername",
+    name="accountss:get-user-id-by-username",
+    response_model=int,
+    status_code=fastapi.status.HTTP_200_OK,
+)
+async def get_user_id_by_username(
+    target_username: str = Query(default=None, description="Username to retrieve"),
+    account_repo: AccountCRUDRepository = fastapi.Depends(get_repository(repo_type=AccountCRUDRepository)),
+):
+    if target_username:
+        try:
+            user_account = await account_repo.read_account_by_username(target_username)
+        except EntityDoesNotExist:
+            raise await http_404_exc_username_not_found_request(username=target_username)
+
+        return user_account.id
+
+    raise await http_404_exc_username_not_found_request(username=target_username)
+
+@router.get(
     path="/posts",
     name="account:account-posts",
     response_model=list[PostInResponse],
@@ -45,13 +65,17 @@ async def enrich_post_with_interactions(
 async def read_posts(
     skip: int = Query(default=0, ge=0, description="Number of posts to skip"),
     limit: int = Query(default=10, ge=1, le=50, description="Number of posts to return"),
+    target_user_id: int = Query(default=None, description="User to retrieve"),
     post_repo: PostCRUDRepository = fastapi.Depends(get_repository(PostCRUDRepository)),
     like_repo: LikeCRUDRepository = fastapi.Depends(get_repository(LikeCRUDRepository)),
     bookmark_repo: BookmarkCRUDRepository = fastapi.Depends(get_repository(BookmarkCRUDRepository)),
     poll_vote_repo: PollVoteCRUDRepository = fastapi.Depends(get_repository(PollVoteCRUDRepository)),
     current_user: Account | None = Depends(get_current_user),
 ):
-    db_posts = await post_repo.read_own_posts(current_user.id, skip=skip, limit=limit)
+    if not target_user_id:
+        target_user_id = current_user.id
+
+    db_posts = await post_repo.read_own_posts(target_user_id, skip=skip, limit=limit)
     
     async def process_post(post, current_user, like_repo, bookmark_repo, poll_vote_repo):
         poll_response = None

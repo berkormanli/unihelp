@@ -125,13 +125,16 @@ async def get_user_liked_posts(
 async def get_user_liked_postsa(
     skip: int = Query(default=0, ge=0, description="Atlanacak gönderi sayısı"), # Atlanacak gönderi sayısı için açıklama
     limit: int = Query(default=10, ge=1, le=50, description="Döndürülecek gönderi sayısı"), # Döndürülecek gönderi sayısı için açıklama
+    target_user_id: int = Query(default=None, description="User to retrieve"),
     current_user: Account = Depends(get_current_user),
     like_repo: LikeCRUDRepository = fastapi.Depends(get_repository(LikeCRUDRepository)),
     bookmark_repo: BookmarkCRUDRepository = fastapi.Depends(get_repository(BookmarkCRUDRepository)),
     poll_vote_repo: PollVoteCRUDRepository = fastapi.Depends(get_repository(PollVoteCRUDRepository)),
 ):
+    if not target_user_id:
+        target_user_id = current_user.id
     # Kullanıcının beğendiği gönderileri al
-    liked_posts = await like_repo.get_user_likes(account_id=current_user.id, skip=skip, limit=limit)
+    liked_posts = await like_repo.get_user_likes(account_id=target_user_id, skip=skip, limit=limit)
 
     
     async def process_post(post, current_user, like_repo, bookmark_repo, poll_vote_repo):
@@ -206,13 +209,16 @@ async def get_user_liked_postsa(
 async def get_user_bookmarked_posts(
     skip: int = Query(default=0, ge=0, description="Atlanacak gönderi sayısı"), # Atlanacak gönderi sayısı için açıklama
     limit: int = Query(default=10, ge=1, le=50, description="Döndürülecek gönderi sayısı"), # Döndürülecek gönderi sayısı için açıklama
+    target_user_id: int = Query(default=None, description="User to retrieve"),
     current_user: Account = Depends(get_current_user),
     like_repo: LikeCRUDRepository = fastapi.Depends(get_repository(LikeCRUDRepository)),
     bookmark_repo: BookmarkCRUDRepository = fastapi.Depends(get_repository(BookmarkCRUDRepository)),
     poll_vote_repo: PollVoteCRUDRepository = fastapi.Depends(get_repository(PollVoteCRUDRepository)),
 ):
+    if not target_user_id:
+        target_user_id = current_user.id
     # Kullanıcının yer işaretlediği gönderileri al
-    bookmarked_posts = await bookmark_repo.get_user_bookmarks(account_id=current_user.id, skip=skip, limit=limit)
+    bookmarked_posts = await bookmark_repo.get_user_bookmarks(account_id=target_user_id, skip=skip, limit=limit)
     
     async def process_post(post, current_user, like_repo, bookmark_repo, poll_vote_repo):
         poll_response = None

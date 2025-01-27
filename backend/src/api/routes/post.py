@@ -141,7 +141,7 @@ async def read_posts(
     poll_vote_repo: PollVoteCRUDRepository = fastapi.Depends(get_repository(PollVoteCRUDRepository)),
     current_user: Account | None = Depends(get_current_user),
 ):
-    db_posts = await post_repo.read_posts(skip=skip, limit=limit, tag=tag)
+    db_posts = await post_repo.read_posts(user_id=current_user.id, skip=skip, limit=limit, tag=tag)
     
     async def process_post(post, current_user, like_repo, bookmark_repo, poll_vote_repo):
         poll_response = None

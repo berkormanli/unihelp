@@ -1,3 +1,8 @@
+from src.models.schemas.account import AccountDetailBase
+from src.models.schemas.post import AnswerInResponsePost, PollInResponsePost, PostInResponse, PostStatsBase
+from src.models.schemas.tag import TagCreate
+from src.repository.crud.bookmark import BookmarkCRUDRepository
+from src.repository.crud.like import LikeCRUDRepository
 import fastapi
 
 from src.api.dependencies.repository import get_repository
@@ -21,6 +26,18 @@ from fastapi import Depends
 
 router = fastapi.APIRouter(prefix="/polls", tags=["polls"])
 
+
+async def enrich_post_with_interactions(
+    post: PostInResponse,
+    current_user: Account | None,
+    like_repo: LikeCRUDRepository,
+    bookmark_repo: BookmarkCRUDRepository
+) -> PostInResponse:
+    if current_user:
+        post.is_liked = await like_repo.is_post_liked(current_user.id, post.id)
+        post.is_bookmarked = await bookmark_repo.is_post_bookmarked(current_user.id, post.id)
+    return post
+
 async def enrich_poll_with_vote_info(
     poll: PollInResponse,
     current_user: Account | None,
@@ -33,25 +50,84 @@ async def enrich_poll_with_vote_info(
             poll.selected_answer_id = vote.answer_index
     return poll
 
-@router.post("", response_model=bool)
+@router.post("", response_model=PostInResponse)
 async def create_poll(
     poll_create: PollInCreate,
-    current_user: Account = Depends(get_current_user),
     post_repo: PostCRUDRepository = fastapi.Depends(get_repository(PostCRUDRepository)),
+    like_repo: LikeCRUDRepository = fastapi.Depends(get_repository(LikeCRUDRepository)),
+    bookmark_repo: BookmarkCRUDRepository = fastapi.Depends(get_repository(BookmarkCRUDRepository)),
+    poll_vote_repo: PollVoteCRUDRepository = fastapi.Depends(get_repository(PollVoteCRUDRepository)),
     poll_repo: PollCRUDRepository = fastapi.Depends(get_repository(PollCRUDRepository)),
+    current_user: Account = Depends(get_current_user),
 ):
     try:
-        db_post = await post_repo.create_post(poll_create, current_user.id)
-        db_poll = await poll_repo.create_poll(poll_create, db_post.id, current_user.id)
+        temp_db_post = await post_repo.create_post(poll_create, current_user.id)
+        db_poll = await poll_repo.create_poll(poll_create, temp_db_post.id, current_user.id)
+        await poll_repo.async_session.commit()
+
+        db_post = await post_repo.read_post(temp_db_post.id)
+
+        async def process_post(post, current_user, like_repo, bookmark_repo, poll_vote_repo):
+            poll_response = None
+            if post.poll:
+                if current_user:
+                    user_vote = await poll_vote_repo.get_user_vote(post.poll.id, current_user.id)
+                else:
+                    user_vote = None
+
+                answers_response = []
+                for answer in post.poll.answers:
+                    answer_count = await poll_vote_repo.get_poll_vote_count(post.poll.id, answer.answer_index)
+
+                    is_selected = False
+                    if user_vote:
+                        is_selected = (answer.answer_index == user_vote.answer_index)
+                    answers_response.append(AnswerInResponsePost(
+                        id=answer.id,
+                        answerIndex=answer.answer_index,
+                        text=answer.text,
+                        answerCount=answer_count,
+                        isSelected=is_selected
+                    ))
+
+                poll_response = PollInResponsePost(
+                    id=post.poll.id,
+                    postId=post.poll.post_id,
+                    accountId=post.poll.account_id,
+                    answers=answers_response,
+                    expirationDate=post.poll.expiration_date,
+                )
+
+            return await enrich_post_with_interactions(
+                PostInResponse(
+                    id=post.id,
+                    content=post.content,
+                    account=AccountDetailBase(
+                        avatar=post.account.avatar,
+                        username=post.account.username,
+                        fullName=post.account.username
+                    ),
+                    stats=PostStatsBase(
+                        comments=post.stats.comments,
+                        likes=post.stats.likes,
+                        bookmarks=post.stats.bookmarks
+                    ),
+                    photos=[photo.url for photo in post.photos],
+                    tags=[TagCreate(name=tag.name) for tag in post.tags],
+                    poll=poll_response,
+                    createdAt=post.created_at
+                ),
+                current_user, like_repo, bookmark_repo
+            )
+        
+        processed_post = await process_post(db_post, current_user, like_repo, bookmark_repo, poll_vote_repo)
+        return processed_post
     except EntityAlreadyExists:
         raise await http_409_exc_post_already_has_poll_request(post_id=db_post.id)
     except EntityDoesNotExist:
         raise await http_404_exc_post_id_not_found_request(post_id=db_post.id)
 
-    #return PollInResponse.from_orm(db_poll)
-    return True
-
-@router.get("/{poll_id}", response_model=PollInResponse)
+""" @router.get("/{poll_id}", response_model=PollInResponse)
 async def read_poll(
     poll_id: int,
     current_user: Account | None = Depends(get_current_user),
@@ -76,7 +152,7 @@ async def read_polls(
     return [
         await enrich_poll_with_vote_info(poll, current_user, poll_vote_repo)
         for poll in poll_responses
-    ]
+    ] """
 
 @router.patch("/{poll_id}", response_model=PollInResponse)
 async def update_poll(

@@ -1,6 +1,7 @@
-from sqlalchemy import select, func
+from sqlalchemy import select, func, update
 from src.models.db.comment import Comment
 from src.models.db.account import Account
+from src.models.db.post_stats import PostStats
 from src.repository.crud.base import BaseCRUDRepository
 from src.models.schemas.comment import CommentCreate
 from src.utilities.exceptions.database import EntityDoesNotExist
@@ -15,6 +16,10 @@ class CommentCRUDRepository(BaseCRUDRepository):
             parent_id=parent_id
         )
         self.async_session.add(comment)
+        await self.async_session.flush()  # Flush to get the new_like.id
+
+        # Increment the likes count in PostStats
+        await self.increment_comment_count(comment_create.post_id)
         await self.async_session.commit()
         await self.async_session.refresh(comment)
         return comment
@@ -75,8 +80,11 @@ class CommentCRUDRepository(BaseCRUDRepository):
         
         if not comment:
             raise EntityDoesNotExist(f"Comment with id {comment_id} not found")
-            
+        post_id = comment.post_id
         await self.async_session.delete(comment)
+        await self.async_session.flush()
+        # Decrement the likes count in PostStats
+        await self.decrement_likes(post_id)
         await self.async_session.commit()
 
     async def update_comment(self, comment_id: int, content: str) -> Comment:
@@ -91,3 +99,19 @@ class CommentCRUDRepository(BaseCRUDRepository):
         await self.async_session.commit()
         await self.async_session.refresh(comment)
         return comment
+
+    async def increment_comment_count(self, post_id: int) -> None:
+        stmt = (
+            update(PostStats)
+            .where(PostStats.post_id == post_id)
+            .values(comments=PostStats.comments + 1)
+        )
+        await self.async_session.execute(stmt)
+
+    async def decrement_comment_count(self, post_id: int) -> None:
+        stmt = (
+            update(PostStats)
+            .where(PostStats.post_id == post_id)
+            .values(comments=PostStats.comments - 1)
+        )
+        await self.async_session.execute(stmt)

@@ -62,6 +62,7 @@ class PollCRUDRepository(BaseCRUDRepository):
             raise DatabaseError(f"Failed to create poll: {e}")
         
         await self.async_session.refresh(db_poll)
+        await self.async_session.refresh(db_post, attribute_names=["poll"])
 
         return db_poll
 
