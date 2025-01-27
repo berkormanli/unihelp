@@ -27,6 +27,7 @@ COPY ./requirements.txt ./
 RUN pip3 install -r requirements.txt
 
 # Copy all files
+CMD ls
 COPY . .
 
 # Copy entrypoint.sh for auto connection with account_db service

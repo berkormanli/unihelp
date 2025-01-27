@@ -6,9 +6,12 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 ROOT_DIR: pathlib.Path = pathlib.Path(__file__).parent.parent.parent.parent.parent.resolve()
 
+from os import environ
+
+print("POSTGRES_URI:", environ.get("POSTGRES_URI"))
 
 class BackendBaseSettings(BaseSettings):
-    TITLE: str = "DAPSQL FARN-Stack Template Application"
+    TITLE: str = "UniHelp API Documentation"
     VERSION: str = "0.1.0"
     TIMEZONE: str = "UTC"
     DESCRIPTION: str | None = None
@@ -21,7 +24,7 @@ class BackendBaseSettings(BaseSettings):
     DOCS_URL: str = "/docs"
     OPENAPI_URL: str = "/openapi.json"
     REDOC_URL: str = "/redoc"
-    OPENAPI_PREFIX: str = ""
+    OPENAPI_PREFIX: str = "/unihelp"
 
     DB_POSTGRES_HOST: str = decouple.config("POSTGRES_HOST", cast=str)  # type: ignore
     DB_MAX_POOL_CON: int = decouple.config("DB_MAX_POOL_CON", cast=int)  # type: ignore
@@ -48,6 +51,7 @@ class BackendBaseSettings(BaseSettings):
     JWT_HOUR: int = decouple.config("JWT_HOUR", cast=int)  # type: ignore
     JWT_DAY: int = decouple.config("JWT_DAY", cast=int)  # type: ignore
     JWT_ACCESS_TOKEN_EXPIRATION_TIME: int = JWT_MIN * JWT_HOUR * JWT_DAY
+    JWT_VERIFICATION_TOKEN_LIFETIME: int = 4 * JWT_MIN
 
     IS_ALLOWED_CREDENTIALS: bool = decouple.config("IS_ALLOWED_CREDENTIALS", cast=bool)  # type: ignore
     ALLOWED_ORIGINS: list[str] = [
@@ -57,8 +61,11 @@ class BackendBaseSettings(BaseSettings):
         "http://127.0.0.1:3001",
         "http://localhost:5173",  # Qwik default port
         "http://0.0.0.0:5173",
+        "http://localhost:5173/",  # Qwik default port
+        "http://0.0.0.0:5173/",
         "http://127.0.0.1:5173",  # Qwik docker port
         "http://127.0.0.1:5174",
+        "https://unihelp-sand.vercel.app"
     ]
     ALLOWED_METHODS: list[str] = ["*"]
     ALLOWED_HEADERS: list[str] = ["*"]

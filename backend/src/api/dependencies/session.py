@@ -1,21 +1,17 @@
-import contextlib
-import typing
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.exc import IntegrityError
 
-import fastapi
-from sqlalchemy.ext.asyncio import (
-    async_sessionmaker as sqlalchemy_async_sessionmaker,
-    AsyncSession as SQLAlchemyAsyncSession,
-    AsyncSessionTransaction as SQLAlchemyAsyncSessionTransaction,
-)
+from src.repository.database import async_db, AsyncSession
 
-from src.repository.database import async_db
+async def get_async_session() -> AsyncSession:
+    async with async_db.async_session() as session:
+        try:
+            yield session
+        except Exception as e:
+            print(e)
+            await session.rollback()
+            raise
+        finally:
+            await session.close()
 
 
-async def get_async_session() -> typing.AsyncGenerator[SQLAlchemyAsyncSession, None]:
-    try:
-        yield async_db.async_session
-    except Exception as e:
-        print(e)
-        await async_db.async_session.rollback()
-    finally:
-        await async_db.async_session.close()

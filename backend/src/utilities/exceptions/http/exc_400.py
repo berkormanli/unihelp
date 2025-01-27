@@ -8,9 +8,11 @@ import fastapi
 
 from src.utilities.messages.exceptions.http.exc_details import (
     http_400_email_details,
+    http_400_invalid_verification_code,
     http_400_sigin_credentials_details,
     http_400_signup_credentials_details,
     http_400_username_details,
+    http_400_already_verified
 )
 
 
@@ -39,4 +41,16 @@ async def http_400_exc_bad_email_request(email: str) -> Exception:
     return fastapi.HTTPException(
         status_code=fastapi.status.HTTP_400_BAD_REQUEST,
         detail=http_400_email_details(email=email),
+    )
+
+async def http_400_exc_bad_verification_request() -> Exception:
+    return fastapi.HTTPException(
+        status_code=fastapi.status.HTTP_400_BAD_REQUEST,
+        detail=http_400_already_verified(),
+    )
+
+async def http_400_exc_bad_verification_code() -> Exception:
+    return fastapi.HTTPException(
+        status_code=fastapi.status.HTTP_400_BAD_REQUEST,
+        detail=http_400_invalid_verification_code()
     )

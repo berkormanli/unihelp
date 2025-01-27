@@ -1,11 +1,12 @@
 import datetime
 
 import sqlalchemy
-from sqlalchemy.orm import Mapped as SQLAlchemyMapped, mapped_column as sqlalchemy_mapped_column
+from sqlalchemy.orm import Mapped as SQLAlchemyMapped, mapped_column as sqlalchemy_mapped_column, registry, relationship, clear_mappers
 from sqlalchemy.sql import functions as sqlalchemy_functions
 
 from src.repository.table import Base
 
+clear_mappers()
 
 class Account(Base):  # type: ignore
     __tablename__ = "account"
@@ -14,12 +15,14 @@ class Account(Base):  # type: ignore
     username: SQLAlchemyMapped[str] = sqlalchemy_mapped_column(
         sqlalchemy.String(length=64), nullable=False, unique=True
     )
+    avatar: SQLAlchemyMapped[str] = sqlalchemy_mapped_column(sqlalchemy.String(length=512), nullable=True)
     email: SQLAlchemyMapped[str] = sqlalchemy_mapped_column(sqlalchemy.String(length=64), nullable=False, unique=True)
     _hashed_password: SQLAlchemyMapped[str] = sqlalchemy_mapped_column(sqlalchemy.String(length=1024), nullable=True)
     _hash_salt: SQLAlchemyMapped[str] = sqlalchemy_mapped_column(sqlalchemy.String(length=1024), nullable=True)
     is_verified: SQLAlchemyMapped[bool] = sqlalchemy_mapped_column(sqlalchemy.Boolean, nullable=False, default=False)
     is_active: SQLAlchemyMapped[bool] = sqlalchemy_mapped_column(sqlalchemy.Boolean, nullable=False, default=False)
     is_logged_in: SQLAlchemyMapped[bool] = sqlalchemy_mapped_column(sqlalchemy.Boolean, nullable=False, default=False)
+    verification_code: SQLAlchemyMapped[str] = sqlalchemy_mapped_column(sqlalchemy.String(length=6), nullable=True)
     created_at: SQLAlchemyMapped[datetime.datetime] = sqlalchemy_mapped_column(
         sqlalchemy.DateTime(timezone=True), nullable=False, server_default=sqlalchemy_functions.now()
     )
@@ -28,6 +31,9 @@ class Account(Base):  # type: ignore
         nullable=True,
         server_onupdate=sqlalchemy.schema.FetchedValue(for_update=True),
     )
+
+    # Relationship (only defined on one side)
+    posts: SQLAlchemyMapped[list["Post"]] = relationship(back_populates="account")
 
     __mapper_args__ = {"eager_defaults": True}
 
