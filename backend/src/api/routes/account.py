@@ -195,6 +195,7 @@ async def get_account(
             token=access_token,
             username=db_account.username,
             email=db_account.email,  # type: ignore
+            avatar=db_account.avatar,
             isVerified=db_account.is_verified,
             isActive=db_account.is_active,
             isLoggedIn=db_account.is_logged_in,
